@@ -243,6 +243,8 @@ class MQ
     # storage.
     #
     def publish data, opts = {}
+      raise StandardError, "connection to broker not available" unless @mq.connected?
+      
       @mq.callback{
         out = []
 

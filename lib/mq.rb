@@ -787,6 +787,10 @@ class MQ
     @queues = {}
     qus.each{ |_,q| q.reset } if qus
   end
+  
+  def connected?
+    conn.connected?
+  end
 
   private
 
