@@ -230,6 +230,8 @@ class MQ
           c.channels.delete @channel
           c.close if c.channels.empty?
         }
+      else
+        log :receive, "unhandled frame type #{method.inspect}"
       end
     end
   end

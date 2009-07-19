@@ -4,6 +4,13 @@ module AMQP
   class Error < StandardError; end
 
   module BasicClient
+    
+    def disconnected(message=nil)
+      p "AMQP::BasicClient disconnect"
+      message ||= "Disconnected from AMQP broker"
+      raise Error, message
+    end
+    
     def process_frame frame
       if mq = channels[frame.channel]
         mq.process_frame(frame)
@@ -36,8 +43,8 @@ module AMQP
           succeed(self)
 
         when Protocol::Connection::Close
-          # raise Error, "#{method.reply_text} in #{Protocol.classes[method.class_id].methods[method.method_id]}"
-          STDERR.puts "#{method.reply_text} in #{Protocol.classes[method.class_id].methods[method.method_id]}"
+          log "received shutdown message from server"
+          disconnected("#{method.reply_text} in #{Protocol.classes[method.class_id].methods[method.method_id]}")
 
         when Protocol::Connection::CloseOk
           @on_disconnect.call if @on_disconnect
@@ -54,6 +61,22 @@ module AMQP
     mod.__send__ :include, AMQP
     @client = mod
   end
+  
+  # A hack that allows Client to intercept calls to #disconnected from code in
+  # BasicClient
+  module DisconnectionBehavior
+    
+    private
+    
+    def disconnected(message=nil)
+      message ||= "lost connection to broker"
+      log message
+      @connection_status.call(:disconnected) if @connection_status
+      force_closed
+      reconnect
+    end
+
+  end
 
   module Client
     include EM::Deferrable
@@ -61,6 +84,7 @@ module AMQP
     def initialize opts = {}
       @settings = opts
       extend AMQP.client
+      extend DisconnectionBehavior
 
       @on_disconnect ||= proc{ raise Error, "Could not connect to server #{opts[:host]}:#{opts[:port]}" }
 
@@ -89,6 +113,12 @@ module AMQP
 
     def connected?
       @connected
+    end
+    
+    def force_closed
+      log 'connection forced closed'
+      @connected = false
+      #disconnected
     end
 
     def unbind
@@ -192,13 +222,8 @@ module AMQP
     def connection_status &blk
       @connection_status = blk
     end
-
+    
     private
-
-    def disconnected
-      @connection_status.call(:disconnected) if @connection_status
-      reconnect
-    end
 
     def log *args
       return unless @settings[:logging] or AMQP.logging

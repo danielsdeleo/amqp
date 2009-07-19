@@ -243,7 +243,9 @@ class MQ
     # storage.
     #
     def publish data, opts = {}
-      raise StandardError, "connection to broker not available" unless @mq.connected?
+      unless @mq.connected?
+        raise(AMQP::Error, "connection to broker not available") if AMQP.fail_on_disconnect
+      end
       
       @mq.callback{
         out = []

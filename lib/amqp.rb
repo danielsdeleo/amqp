@@ -17,6 +17,12 @@ module AMQP
     attr_reader :conn, :closing
     alias :closing? :closing
     alias :connection :conn
+    
+    attr_accessor :fail_on_disconnect
+    def fail_on_disconnect?
+      @fail_on_disconnect
+    end
+    
   end
 
   def self.connect *args
@@ -113,3 +119,5 @@ module AMQP
     end
   end
 end
+
+AMQP.fail_on_disconnect = true
